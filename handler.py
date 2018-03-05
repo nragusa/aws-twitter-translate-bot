@@ -37,10 +37,9 @@ def sanitize_tweet(tweet, tweeter):
         a proper response tweet, and splits the tweets into 2 if the
         resulting tweet is 280 characters or greater."""
     translated = re.sub(r'\s([?.!"](?:\s|$))', r'\1', tweet)
+    translated = re.sub(r'[#]\s', r'#', translated)
     translated = translated.replace(
         '@{}'.format(TWITTER_BOT_HANDLE), '')
-    translated = translated.replace('# ar', '#ar').replace('# es', '#es').replace(
-        '# fr', '#fr').replace('# pt', '#pt').replace('# de', '#de').replace('# zh', '#zh')
     translated = '@{} {}'.format(tweeter, translated)
     translated = translated.lstrip()
     if len(translated) > 280:
@@ -60,8 +59,8 @@ def translate_tweet(tweet, tweeter, language):
         language, we respond with a generic response and instructions
         on how to use the bot."""
     if language == 'unknown':
-        return ("Hey! I didn't recognize the language you wanted me to translate that to. You can use "
-                "any of #ar, #zh, #fr, #de, #pt, #es.")
+        return [("Hey! I didn't recognize the language you wanted me to translate that to. You can use "
+                 "any of #ar, #zh, #fr, #de, #pt, #es.")]
     else:
         client = boto3.client('translate', region_name='us-east-1')
         try:
@@ -72,7 +71,7 @@ def translate_tweet(tweet, tweeter, language):
             )
         except ClientError as error:
             print('Problem translating text: {}'.format(error))
-            return ("Hey! I had a problem translating that one. Maybe another time?")
+            return [("Hey! I had a problem translating that one. Maybe another time?")]
         else:
             translated_tweet = sanitize_tweet(
                 response['TranslatedText'], tweeter)
