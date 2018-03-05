@@ -1,0 +1,122 @@
+# Welcome to Serverless!
+#
+# This file is the main config file for your service.
+# It's very minimal at this point and uses default values.
+# You can always add more config options for more control.
+# We've included some commented out config examples here.
+# Just uncomment any of them to get that config option.
+#
+# For full config options, check the docs:
+#    docs.serverless.com
+#
+# Happy Coding!
+
+service: translator-bot
+
+# You can pin your service to only deploy with a specific Serverless version
+# Check out our docs for more details
+# frameworkVersion: "=X.X.X"
+
+provider:
+  name: aws
+  runtime: python3.6
+  stage: dev
+  region: us-east-2
+  apiKeys:
+    - ${opt:stage}
+  environment:
+    DDB_TABLE: ${self:service}-${opt:stage, self:provider.stage}
+  iamRoleStatements: # permissions for all of your functions can be set here
+    - Effect: Allow
+      Action: dynamodb:PutItem
+      Resource: 'arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.DDB_TABLE}'
+    - Effect: Allow
+      Action: translate:TranslateText
+      Resource: '*'
+    - Effect: Allow
+      Action: kms:decrypt
+      Resource: 
+        Fn::GetAtt: [ KMSKey, Arn ]
+    - Effect: Allow
+      Action: ssm:GetParameters
+      Resource: 'arn:aws:ssm:${self:provider.region}:*:parameter/sls.${opt:stage, self:provider.stage}.twitter.translator.*'
+
+package:
+  include:
+    - site-packages/**
+    - handler.py
+  exclude:
+    - .git/**
+    - venv/**
+
+functions:
+  translator-bot:
+    handler: handler.translate
+    name: translator-bot-${opt:stage, self:provider.stage}
+    description: Receives a webhook from Zapier.com service when someone Tweets to @MyTransltorBot, then translates the tweet in response
+    runtime: python3.6
+    memorySize: 128
+    timeout: 5
+    tags:
+      Environment: Dev
+      Project: Translator Twitter Bot
+    events:
+      - http:
+          path: /translate
+          method: post
+          private: true
+    environment:
+      DDB_TABLE: ${self:provider.environment.DDB_TABLE}
+      TWITTER_BOT_HANDLE: MyTranslatorBot
+
+# you can add CloudFormation resource templates here
+resources:
+  Resources:
+    TranslatorBotTable:
+      Type: AWS::DynamoDB::Table
+      DeletionPolicy: Retain
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: screen_name
+            AttributeType: S
+          -
+            AttributeName: date_tweeted
+            AttributeType: S
+        KeySchema:
+          -
+            AttributeName: screen_name
+            KeyType: HASH
+          -
+            AttributeName: date_tweeted
+            KeyType: RANGE
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${self:provider.environment.DDB_TABLE}
+        Tags:
+            -
+              Key: Environment
+              Value: Dev
+            -
+              Key: Project
+              Value: Translator Twitter Bot
+    KMSKey:
+      Type: AWS::KMS::Key
+      Properties:
+        Description: 'KMS CMK for the Transltor Twitter Bot'
+        Enabled: true
+        EnableKeyRotation: false
+        KeyPolicy:
+          Version: '2012-10-17'
+          Id: 
+            Fn::Join: ['-', [Ref: 'AWS::StackName', 'key-policy']]
+          Statement: 
+            - Sid: 'Allow administration of the key'
+              Effect: 'Allow'
+              Principal: 
+                AWS: 
+                  Fn::Join: ['', ['arn:aws:iam::', Ref: 'AWS::AccountId', ':root']]
+              Action: 
+              - 'kms:*'
+              Resource: '*'
