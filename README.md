@@ -1,5 +1,7 @@
 ## Overview
 
+![diagram](https://github.com/nragusa/aws-twitter-translate-bot/blob/master/images/architecture.png)
+
 This is a serverless application that will translate a tweet into another language using Amazon Translate. When a user includes @MyTranslatorBot, along with a hashtag + language code (e.g. #fr for French), [Zapier.com](https://zapier.com) will fire a webhook to the API Gateway endpoint that will invokde the Lambda function. The Lambda function is responsible for parsing the tweet, translating it, sanitizing the tweet before responding, saving it off into DynamoDB, then replying to the tweet with the translation. This application was built using the very awesome [Serverless Framework](https://serverless.com).
 
 ## Prerequisites
